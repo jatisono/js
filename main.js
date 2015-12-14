@@ -1,130 +1,82 @@
-jQuery(document).ready(function(){
-	//cache DOM elements
-	var mainContent = $('.cd-main-content'),
-		header = $('.cd-main-header'),
-		sidebar = $('.cd-side-nav'),
-		sidebarTrigger = $('.cd-nav-trigger'),
-		topNavigation = $('.cd-top-nav'),
-		searchForm = $('.cd-search'),
-		accountInfo = $('.account');
+jQuery(document).ready(function($){
+	//if you change this breakpoint in the style.css file (or _layout.scss if you use SASS), don't forget to update this value as well
+	var $L = 900,
+		$menu_navigation = $('#main-nav'),
+		$cart_trigger = $('#cd-cart-trigger'),
+		$hamburger_icon = $('#cd-hamburger-menu'),
+		$lateral_cart = $('#cd-cart'),
+		$shadow_layer = $('#cd-shadow-layer');
 
-	//on resize, move search and top nav position according to window width
-	var resizing = false;
-	moveNavigation();
-	$(window).on('resize', function(){
-		if( !resizing ) {
-			(!window.requestAnimationFrame) ? setTimeout(moveNavigation, 300) : window.requestAnimationFrame(moveNavigation);
-			resizing = true;
-		}
-	});
-
-	//on window scrolling - fix sidebar nav
-	var scrolling = false;
-	checkScrollbarPosition();
-	$(window).on('scroll', function(){
-		if( !scrolling ) {
-			(!window.requestAnimationFrame) ? setTimeout(checkScrollbarPosition, 300) : window.requestAnimationFrame(checkScrollbarPosition);
-			scrolling = true;
-		}
-	});
-
-	//mobile only - open sidebar when user clicks the hamburger menu
-	sidebarTrigger.on('click', function(event){
+	//open lateral menu on mobile
+	$hamburger_icon.on('click', function(event){
 		event.preventDefault();
-		$([sidebar, sidebarTrigger]).toggleClass('nav-is-visible');
+		//close cart panel (if it's open)
+		$lateral_cart.removeClass('speed-in');
+		toggle_panel_visibility($menu_navigation, $shadow_layer, $('body'));
 	});
 
-	//click on item and show submenu
-	$('.has-children > a').on('click', function(event){
-		var mq = checkMQ(),
-			selectedItem = $(this);
-		if( mq == 'mobile' || mq == 'tablet' ) {
-			event.preventDefault();
-			if( selectedItem.parent('li').hasClass('selected')) {
-				selectedItem.parent('li').removeClass('selected');
-			} else {
-				sidebar.find('.has-children.selected').removeClass('selected');
-				accountInfo.removeClass('selected');
-				selectedItem.parent('li').addClass('selected');
-			}
+	//open cart
+	$cart_trigger.on('click', function(event){
+		event.preventDefault();
+		//close lateral menu (if it's open)
+		$menu_navigation.removeClass('speed-in');
+		toggle_panel_visibility($lateral_cart, $shadow_layer, $('body'));
+	});
+
+	//close lateral cart or lateral menu
+	$shadow_layer.on('click', function(){
+		$shadow_layer.removeClass('is-visible');
+		// firefox transitions break when parent overflow is changed, so we need to wait for the end of the trasition to give the body an overflow hidden
+		if( $lateral_cart.hasClass('speed-in') ) {
+			$lateral_cart.removeClass('speed-in').on('webkitTransitionEnd otransitionend oTransitionEnd msTransitionEnd transitionend', function(){
+				$('body').removeClass('overflow-hidden');
+			});
+			$menu_navigation.removeClass('speed-in');
+		} else {
+			$menu_navigation.removeClass('speed-in').on('webkitTransitionEnd otransitionend oTransitionEnd msTransitionEnd transitionend', function(){
+				$('body').removeClass('overflow-hidden');
+			});
+			$lateral_cart.removeClass('speed-in');
 		}
 	});
 
-	//click on account and show submenu - desktop version only
-	accountInfo.children('a').on('click', function(event){
-		var mq = checkMQ(),
-			selectedItem = $(this);
-		if( mq == 'desktop') {
-			event.preventDefault();
-			accountInfo.toggleClass('selected');
-			sidebar.find('.has-children.selected').removeClass('selected');
-		}
-	});
-
-	$(document).on('click', function(event){
-		if( !$(event.target).is('.has-children a') ) {
-			sidebar.find('.has-children.selected').removeClass('selected');
-			accountInfo.removeClass('selected');
-		}
-	});
-
-	//on desktop - differentiate between a user trying to hover over a dropdown item vs trying to navigate into a submenu's contents
-	sidebar.children('ul').menuAim({
-        activate: function(row) {
-        	$(row).addClass('hover');
-        },
-        deactivate: function(row) {
-        	$(row).removeClass('hover');
-        },
-        exitMenu: function() {
-        	sidebar.find('.hover').removeClass('hover');
-        	return true;
-        },
-        submenuSelector: ".has-children",
-    });
-
-	function checkMQ() {
-		//check if mobile or desktop device
-		return window.getComputedStyle(document.querySelector('.cd-main-content'), '::before').getPropertyValue('content').replace(/'/g, "").replace(/"/g, "");
-	}
-
-	function moveNavigation(){
-  		var mq = checkMQ();
-        
-        if ( mq == 'mobile' && topNavigation.parents('.cd-side-nav').length == 0 ) {
-        	detachElements();
-			topNavigation.appendTo(sidebar);
-			searchForm.removeClass('is-hidden').prependTo(sidebar);
-		} else if ( ( mq == 'tablet' || mq == 'desktop') &&  topNavigation.parents('.cd-side-nav').length > 0 ) {
-			detachElements();
-			searchForm.insertAfter(header.find('.cd-logo'));
-			topNavigation.appendTo(header.find('.cd-nav'));
-		}
-		checkSelected(mq);
-		resizing = false;
-	}
-
-	function detachElements() {
-		topNavigation.detach();
-		searchForm.detach();
-	}
-
-	function checkSelected(mq) {
-		//on desktop, remove selected class from items selected on mobile/tablet version
-		if( mq == 'desktop' ) $('.has-children.selected').removeClass('selected');
-	}
-
-	function checkScrollbarPosition() {
-		var mq = checkMQ();
+	//move #main-navigation inside header on laptop
+	//insert #main-navigation after header on mobile
+	move_navigation( $menu_navigation, $L);
+	$(window).on('resize', function(){
+		move_navigation( $menu_navigation, $L);
 		
-		if( mq != 'mobile' ) {
-			var sidebarHeight = sidebar.outerHeight(),
-				windowHeight = $(window).height(),
-				mainContentHeight = mainContent.outerHeight(),
-				scrollTop = $(window).scrollTop();
-
-			( ( scrollTop + windowHeight > sidebarHeight ) && ( mainContentHeight - sidebarHeight != 0 ) ) ? sidebar.addClass('is-fixed').css('bottom', 0) : sidebar.removeClass('is-fixed').attr('style', '');
+		if( $(window).width() >= $L && $menu_navigation.hasClass('speed-in')) {
+			$menu_navigation.removeClass('speed-in');
+			$shadow_layer.removeClass('is-visible');
+			$('body').removeClass('overflow-hidden');
 		}
-		scrolling = false;
-	}
+
+	});
 });
+
+function toggle_panel_visibility ($lateral_panel, $background_layer, $body) {
+	if( $lateral_panel.hasClass('speed-in') ) {
+		// firefox transitions break when parent overflow is changed, so we need to wait for the end of the trasition to give the body an overflow hidden
+		$lateral_panel.removeClass('speed-in').one('webkitTransitionEnd otransitionend oTransitionEnd msTransitionEnd transitionend', function(){
+			$body.removeClass('overflow-hidden');
+		});
+		$background_layer.removeClass('is-visible');
+
+	} else {
+		$lateral_panel.addClass('speed-in').one('webkitTransitionEnd otransitionend oTransitionEnd msTransitionEnd transitionend', function(){
+			$body.addClass('overflow-hidden');
+		});
+		$background_layer.addClass('is-visible');
+	}
+}
+
+function move_navigation( $navigation, $MQ) {
+	if ( $(window).width() >= $MQ ) {
+		$navigation.detach();
+		$navigation.appendTo('header');
+	} else {
+		$navigation.detach();
+		$navigation.insertAfter('header');
+	}
+}
